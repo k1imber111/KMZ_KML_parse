@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='KMZ_KML_Organizer',
+    name='KMZ_new',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
