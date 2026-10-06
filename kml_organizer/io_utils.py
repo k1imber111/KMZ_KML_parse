@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
+__all__ = ["get_user_input", "ask_file_path", "ask_folder_name", "ask_mode"]
 
 Validator = Callable[[str], bool]
 
@@ -16,29 +17,29 @@ def get_user_input(prompt: str, validator: Optional[Validator] = None) -> Option
     Возвращает:
     - введённую строку (str), если она прошла валидацию;
     - None, если пользователь ввёл !cancel;
-    - НЕ возвращает управление, если пользователь ввёл !exit (происходит выход).
+    - НЕ возвращает управление, если пользователь ввёл !exit или ввод закрыт (происходит выход).
     """
     while True:
         try:
             user_input = input(prompt).strip()
-
-            if user_input == "!cancel":
-                return None
-            if user_input == "!exit":
-                print("Выход из программы.")
-                sys.exit(0)
-
-            if validator is None or validator(user_input):
-                return user_input
-
-            print("Некорректный ввод. Попробуйте снова.")
-
         except KeyboardInterrupt:
             print("\nОперация прервана. Для выхода введите !exit")
+            continue
         except EOFError:
-            print("\nВвод завершен. Для выхода введите !exit")
-        except Exception as e:
-            print(f"Ошибка: {e}")
+            # Поток ввода закрыт: повторный input() снова даст EOFError
+            print("\nВвод завершен. Выход из программы.")
+            sys.exit(0)
+
+        if user_input == "!cancel":
+            return None
+        if user_input == "!exit":
+            print("Выход из программы.")
+            sys.exit(0)
+
+        if validator is None or validator(user_input):
+            return user_input
+
+        print("Некорректный ввод. Попробуйте снова.")
 
 
 def ask_file_path() -> Optional[Path]:
@@ -49,7 +50,8 @@ def ask_file_path() -> Optional[Path]:
             print("Отмена ввода пути к файлу.")
             return None
 
-        path = Path(file_path_str)
+        # «Копировать как путь» в Windows оборачивает путь в кавычки
+        path = Path(file_path_str.strip('"'))
         if path.exists() and path.is_file():
             return path
 
@@ -57,17 +59,12 @@ def ask_file_path() -> Optional[Path]:
 
 
 def ask_folder_name() -> Optional[str]:
-    """Запрашивает имя новой папки."""
-    while True:
-        name = get_user_input(
-            "Введите имя новой папки (!cancel для отмены, !exit для выхода): ",
-            lambda x: bool(x.strip()),
-        )
-        if name is None:
-            return None
-        cleaned = name.strip()
-        if cleaned:
-            return cleaned
+    """Запрашивает имя папки.
+
+    Возвращает None, если пользователь завершил набор папок (пустая строка или !cancel).
+    """
+    name = get_user_input("Введите имя папки (ENTER или !cancel - завершить и сохранить файл): ")
+    return name or None
 
 
 def ask_mode() -> Optional[str]:
@@ -77,4 +74,3 @@ def ask_mode() -> Optional[str]:
         lambda x: x in ("1", "2"),
     )
     return mode
-

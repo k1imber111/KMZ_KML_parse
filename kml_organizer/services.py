@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import os
+import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from .core import KmlDocumentManager
 from .logging_config import get_logger
+
+__all__ = ["load_document", "export_folders_to_kmz"]
 
 
 def load_document(path: Path) -> KmlDocumentManager:
@@ -31,37 +33,9 @@ def load_document(path: Path) -> KmlDocumentManager:
     return manager
 
 
-def get_or_create_folder(manager: KmlDocumentManager, folder_name: str):
-    """Возвращает существующую или создаёт новую папку."""
-    return manager.create_folder(folder_name)
-
-
-def find_placemarks(
-    manager: KmlDocumentManager,
-    patterns: List[str],
-    use_regex: bool,
-) -> Tuple[List[object], List[str]]:
-    """Обёртка над методом поиска меток."""
-    return manager.find_placemarks(patterns, use_regex)
-
-
-def move_to_folder(
-    manager: KmlDocumentManager,
-    placemarks: List[object],
-    folder,
-) -> int:
-    """Перемещает указанные метки в папку."""
-    return manager.move_placemarks(placemarks, folder)
-
-
-def save_if_modified(manager: KmlDocumentManager) -> Optional[Path]:
-    """Сохраняет файл, если есть изменения."""
-    return manager.save_to_file()
-
-
 def export_folders_to_kmz(
     manager: KmlDocumentManager,
-    session_folders: Dict[str, List[object]],
+    session_folders: Dict[str, List[ET.Element]],
     output_path: Path,
 ) -> Optional[Path]:
     """Экспортирует выбранные папки и метки в отдельный KMZ-файл.
@@ -75,34 +49,21 @@ def export_folders_to_kmz(
         return None
 
     try:
-        tree = manager.build_export_tree(session_folders)  # type: ignore[arg-type]
-    except Exception as e:
-        logger.error("Не удалось построить экспортный KML-документ: %s", e, exc_info=True)
-        return None
-
-    temp_kml = output_path.with_suffix(".kml")
-
-    try:
-        tree.write(temp_kml, encoding="utf-8", xml_declaration=True)
+        tree = manager.build_export_tree(session_folders)
+        doc_kml = ET.tostring(tree.getroot(), encoding="utf-8", xml_declaration=True)
 
         with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as kmz:
-            kmz.write(temp_kml, arcname="doc.kml")
+            kmz.writestr("doc.kml", doc_kml)
+            manager.copy_resources(kmz)
 
-        try:
-            os.remove(temp_kml)
-        except OSError:
-            logger.warning("Не удалось удалить временный файл: %s", temp_kml)
-
-        logger.info("Экспортированный KMZ файл сохранён: %s", output_path)
-        return output_path
-
-    except Exception as e:
+    except (OSError, zipfile.BadZipFile, ValueError, RuntimeError) as e:
         logger.error("Ошибка при экспорте KMZ: %s", e, exc_info=True)
+        # Недописанный архив хуже отсутствующего
         try:
-            if temp_kml.exists():
-                os.remove(temp_kml)
+            output_path.unlink(missing_ok=True)
         except OSError:
-            logger.warning("Не удалось удалить временный файл после ошибки: %s", temp_kml)
+            logger.warning("Не удалось удалить недописанный файл: %s", output_path)
         return None
 
-
+    logger.info("Экспортированный KMZ файл сохранён: %s", output_path)
+    return output_path

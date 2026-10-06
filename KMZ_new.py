@@ -11,14 +11,12 @@ KML/KMZ
 Этот файл оставлен в качестве тонкой оболочки для запуска из консоли.
 """
 
-import logging
-
 from kml_organizer.cli import main
+from kml_organizer.logging_config import get_logger
 
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        print(f"Произошла непредвиденная ошибка: {e}")
-        logging.error("Произошла непредвиденная ошибка: %s", e, exc_info=True)
+        get_logger().error("Произошла непредвиденная ошибка: %s", e, exc_info=True)
