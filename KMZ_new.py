@@ -20,3 +20,8 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         get_logger().error("Произошла непредвиденная ошибка: %s", e, exc_info=True)
+        # Окно exe закрывается сразу после выхода — даём прочитать сообщение
+        try:
+            input("Подробности записаны в kml_manager.log. Нажмите ENTER для выхода...")
+        except (EOFError, KeyboardInterrupt):
+            pass

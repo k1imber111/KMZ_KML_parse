@@ -12,6 +12,13 @@ __all__ = ["get_logger"]
 PACKAGE_LOGGER = "kml_organizer"
 
 
+class _ConsoleFormatter(logging.Formatter):
+    """Для консоли — только текст сообщения; трассировка ошибки остаётся в файле лога."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return record.getMessage()
+
+
 def get_logger(name: Optional[str] = None, log_path: Optional[Path] = None) -> logging.Logger:
     """Возвращает логгер пакета.
 
@@ -25,7 +32,7 @@ def get_logger(name: Optional[str] = None, log_path: Optional[Path] = None) -> l
         package_logger.setLevel(logging.INFO)
 
         console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(logging.Formatter("%(message)s"))
+        console_handler.setFormatter(_ConsoleFormatter())
         package_logger.addHandler(console_handler)
 
         try:

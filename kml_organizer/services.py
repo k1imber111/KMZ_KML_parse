@@ -28,6 +28,11 @@ def load_document(path: Path) -> KmlDocumentManager:
         raise RuntimeError(f"Не удалось разобрать файл: {path}")
 
     if not manager.placemarks:
+        if any(element.tag.endswith("NetworkLink") for element in manager.root.iter()):
+            raise RuntimeError(
+                "В файле нет меток: он содержит только ссылку на внешнюю карту (NetworkLink). "
+                "Откройте его в Google Планета Земля и сохраните через «Сохранить место как»."
+            )
         raise RuntimeError("В файле не найдено меток для обработки.")
 
     return manager
@@ -54,7 +59,7 @@ def export_folders_to_kmz(
 
         with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as kmz:
             kmz.writestr("doc.kml", doc_kml)
-            manager.copy_resources(kmz)
+            manager.copy_resources(kmz, tree.getroot())
 
     except (OSError, zipfile.BadZipFile, ValueError, RuntimeError) as e:
         logger.error("Ошибка при экспорте KMZ: %s", e, exc_info=True)
